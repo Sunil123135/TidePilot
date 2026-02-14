@@ -1,0 +1,24 @@
+{
+  "name": "@tidepilot/ai",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/engine.ts",
+  "types": "./src/engine.ts",
+  "exports": {
+    ".": "./src/engine.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./orchestrator": "./src/orchestrator.ts",
+    "./ocr": "./src/ocr/ocrService.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DraftStatus {
+  IDEA
+  DRAFT
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+enum EngagementStatus {
+  PENDING
+  REPLIED
+  SKIPPED
+}
+
+enum EngagementTriageState {
+  NeedsReply
+  NeedsFollowUp
+  CloseLoop
+  Ignore
+}
+
+enum InboxItemType {
+  OCR_IMAGE
+  OCR_PDF
+  PASTE_TEXT
+}
+
+enum InboxItemStatus {
+  NEW
+  PROCESSED
+  ARCHIVED
+}
+
+enum FileAssetKind {
+  IMAGE
+  PDF
+}
+
+enum VoicePersonaStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+enum VoicePersonaProvider {
+  STUB
+  LOCAL_TTS
+  EXTERNAL_TTS
+}
+
+enum AudioAssetKind {
+  NARRATION
+  SUMMARY
+}
+
+enum ConsentType {
+  VOICE_PERSONA
+}
+
+enum DraftChannel {
+  GENERIC
+  LINKEDIN
+  VOICE
+  VIDEO_SCRIPT
+}
+
+enum PublishPlatform {
+  LINKEDIN
+  TWITTER
+  NEWSLETTER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  memberships Membership[]
+}
+
+model Workspace {
+  id            String   @id @default(cuid())
+  name          String
+  plan          String   @default("FREE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  memberships   Membership[]
+  voiceProfiles VoiceProfile[]
+  writingSamples WritingSample[]
+  drafts        Draft[]
+  engagementItems EngagementItem[]
+  weeklyBriefs  WeeklyBrief[]
+  actionEvents  ActionEvent[]
+  experiments   Experiment[]
+  scheduledPosts ScheduledPost[]
+  agentLogs     AgentLog[]
+  inboxItems    InboxItem[]
+  fileAssets    FileAsset[]
+  voicePersonas VoicePersona[]
+  audioAssets   AudioAsset[]
+  consentLogs   ConsentLog[]
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String   @default("member")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@unique([userId, workspaceId])
+}
+
+model VoiceProfile {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  toneSliders Json?   // { assertive: number, concise: number, ... }
+  forbiddenPhrases String[]
+  signatureMoves   String[]
+  exampleParagraph String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WritingSample {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  source      String   // e.g. "paste", "import", "doc"
+  text        String   @db.Text
+  createdAt   DateTime @default(now())
+}
+
+model Draft {
+  id          String       @id @default(cuid())
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content     String       @db.Text
+  status      DraftStatus  @default(DRAFT)
+  channel     DraftChannel @default(GENERIC)
+  meta        Json?        // format, quality scores, hook type, hashtags, video script, etc.
+  voiceScore  Float?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  scheduledPosts ScheduledPost[]
+}
+
+model ScheduledPost {
+  id          String         @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  draftId     String
+  draft       Draft         @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  publishDate DateTime
+  platform    PublishPlatform @default(LINKEDIN)
+  slotOrder   Int            @default(0) // for ordering within a day
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([draftId])
+}
+
+model EngagementItem {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  comment           String   @db.Text
+  author            String
+  threadId          String?
+  status            EngagementStatus @default(PENDING)
+  metadata          Json?    // sentiment, context
+  relationshipScore Float?   // influence + reciprocity index
+  replyCount        Int      @default(0) // thread depth
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model WeeklyBrief {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  weekStart       DateTime
+  insights        Json     // array of insight objects
+  actions         Json     // array of action objects
+  postSuggestions Json?    // array of post suggestion strings
+  engageWith      Json?    // array of { name, reason? }
+  summary         Json?    // { doThis, avoidThis, focusOn }
+  createdAt       DateTime @default(now())
+}
+
+model ActionEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String?
+  actionType  String   // VOICE_EXTRACT, DRAFT_GENERATE, etc.
+  units       Int      @default(1)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model Experiment {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?  @db.Text
+  hypothesis    String?  @db.Text
+  status        String   @default("active") // active, completed
+  impactEstimate String? // "high", "medium", "low"
+  timeEstimate  String? // "15 min", "30 min"
+  beforeMetrics  Json?   // snapshot before experiment
+  afterMetrics   Json?   // snapshot after experiment
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AgentLog {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agentName        String
+  actionType       String   // contract type, e.g. HOOK_SCORE, STRATEGIC_POSITIONING_ANALYSIS
+  confidenceScore  Float?
+  costEstimate     Float?   // estimated token cost
+  metadata         Json?    // extra context
+  createdAt        DateTime @default(now())
+}
+
+model InboxItem {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type         InboxItemType
+  title        String?
+  source       String?         // e.g. "screenshot.png", "notes.pdf"
+  rawText      String?         @db.Text
+  cleanedText  String?         @db.Text
+  confidenceJson Json?         // blocks with text + confidence
+  status       InboxItemStatus  @default(NEW)
+  fileAssetId  String?
+  fileAsset    FileAsset?      @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model FileAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  kind        FileAssetKind
+  path        String   // url or local path
+  mimeType    String?
+  size        Int?
+  createdAt   DateTime @default(now())
+  inboxItems  InboxItem[]
+  voicePersonas VoicePersona[]
+}
+
+model VoicePersona {
+  id             String             @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name           String
+  status         VoicePersonaStatus  @default(PENDING)
+  provider       VoicePersonaProvider @default(STUB)
+  sampleAssetId  String?
+  sampleAsset    FileAsset?         @relation(fields: [sampleAssetId], references: [id], onDelete: SetNull)
+  metadataJson   Json?               // duration, quality score
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  audioAssets    AudioAsset[]
+}
+
+model AudioAsset {
+  id              String        @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  voicePersonaId  String?
+  voicePersona    VoicePersona? @relation(fields: [voicePersonaId], references: [id], onDelete: SetNull)
+  kind            AudioAssetKind
+  textSourceId    String?       // Draft/Brief id
+  path            String        // url or local path
+  duration        Float?
+  createdAt       DateTime      @default(now())
+}
+
+model ConsentLog {
+  id           String      @id @default(cuid())
+  userId       String?
+  workspaceId  String
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  consentType  ConsentType
+  statementText String     @db.Text
+  createdAt    DateTime    @default(now())
+}
