@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { createVoicePersona } from '@/app/actions';
 import { Mic, CheckCircle, Shield, Loader2 } from 'lucide-react';
+import { VoiceRecorder } from '@/components/voice-recorder';
 
 const CONSENT_STATEMENT =
   'I confirm this is my voice or I have explicit rights to use it. I understand TidePilot will not support cloning third-party voices.';
@@ -16,22 +17,33 @@ export default function VoiceAudioPage() {
   const router = useRouter();
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [personaName, setPersonaName] = useState('My Voice');
-  const [livenessRecorded, setLivenessRecorded] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [creating, setCreating] = useState(false);
-  const [step, setStep] = useState(1);
 
   async function handleCreate() {
-    if (!consentAccepted) return;
+    if (!consentAccepted || !audioBlob) return;
     setCreating(true);
+
+    // TODO: Upload audioBlob to storage and get URL
+    // For now, we'll just create the persona without the audio file
     const r = await createVoicePersona({
       name: personaName.trim() || 'My Voice',
       consentStatement: CONSENT_STATEMENT,
     });
+
     setCreating(false);
     if (r.ok) {
       router.push('/app/voice');
       router.refresh();
     }
+  }
+
+  function handleRecordingComplete(blob: Blob) {
+    setAudioBlob(blob);
+    console.log('Recording complete:', {
+      size: `${(blob.size / 1024).toFixed(2)} KB`,
+      type: blob.type,
+    });
   }
 
   return (
@@ -94,26 +106,19 @@ export default function VoiceAudioPage() {
               onChange={(e) => setPersonaName(e.target.value)}
             />
           </div>
-          <div className="rounded-lg border border-dashed border-border p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              Stub: In production, record or upload 30–90 sec audio.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLivenessRecorded(true)}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Simulate recording complete
-            </Button>
-          </div>
+
+          <VoiceRecorder
+            onRecordingComplete={handleRecordingComplete}
+            minDuration={30}
+            maxDuration={90}
+          />
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-2">
         <Button
           onClick={handleCreate}
-          disabled={!consentAccepted || !livenessRecorded || creating}
+          disabled={!consentAccepted || !audioBlob || creating}
         >
           {creating ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />

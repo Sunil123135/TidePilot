@@ -54,7 +54,7 @@ export async function generateVoiceProfileAction() {
       orderBy: { createdAt: 'desc' },
     });
     const texts = samples.map((s) => s.text);
-    const result = extractVoiceProfile(texts);
+    const result = await extractVoiceProfile(texts);
     await db.voiceProfile.deleteMany({ where: { workspaceId } });
     await db.voiceProfile.create({
       data: {
@@ -281,7 +281,19 @@ export async function rewriteDraftToVoice(draftId: string) {
     const draft = await db.draft.findUnique({ where: { id: draftId } });
     if (!draft) return { ok: false, error: 'Draft not found' };
     const workspaceId = draft.workspaceId;
-    const result = rewriteToVoice({ content: draft.content });
+
+    // Get voice profile for this workspace
+    const voiceProfile = await db.voiceProfile.findFirst({ where: { workspaceId } });
+
+    const result = await rewriteToVoice({
+      content: draft.content,
+      voiceProfile: voiceProfile ? {
+        toneSliders: voiceProfile.toneSliders as Record<string, number> | undefined,
+        forbiddenPhrases: voiceProfile.forbiddenPhrases,
+        signatureMoves: voiceProfile.signatureMoves,
+        exampleParagraph: voiceProfile.exampleParagraph ?? undefined,
+      } : undefined,
+    });
     // Don't update draft yet - return diff for user to accept/reject
     await db.actionEvent.create({
       data: {
@@ -434,9 +446,18 @@ export async function suggestEngagementReplies(commentId: string) {
     const item = await db.engagementItem.findUnique({ where: { id: commentId } });
     if (!item) return { ok: false, error: 'Not found' };
     const workspaceId = item.workspaceId;
-    const result = suggestReplies({
+
+    // Get voice profile for this workspace
+    const voiceProfile = await db.voiceProfile.findFirst({ where: { workspaceId } });
+
+    const result = await suggestReplies({
       comment: item.comment,
       context: item.metadata ? JSON.stringify(item.metadata) : undefined,
+      voiceProfile: voiceProfile ? {
+        toneSliders: voiceProfile.toneSliders as Record<string, number> | undefined,
+        forbiddenPhrases: voiceProfile.forbiddenPhrases,
+        signatureMoves: voiceProfile.signatureMoves,
+      } : undefined,
     });
     await db.actionEvent.create({
       data: {
@@ -517,7 +538,50 @@ export async function generateBriefAction() {
   try {
     const workspaceId = await getWorkspaceId();
     if (!workspaceId) return { ok: false, error: 'No workspace. Set DATABASE_URL (e.g. Neon/Supabase), then run: pnpm db:push && pnpm db:seed' };
-    const result = generateWeeklyBrief({ workspaceId });
+
+    // Fetch recent posts and comments for context
+    const recentPosts = await db.draft.findMany({
+      where: {
+        workspaceId,
+        status: 'PUBLISHED',
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
+      },
+      select: {
+        content: true,
+        createdAt: true,
+        meta: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    const recentComments = await db.engagementItem.findMany({
+      where: {
+        workspaceId,
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+      },
+      select: {
+        author: true,
+        comment: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const result = await generateWeeklyBrief({
+      workspaceId,
+      recentPosts: recentPosts.map(p => ({
+        title: (p.content?.slice(0, 50) || 'Untitled') + (p.content && p.content.length > 50 ? '...' : ''),
+        content: p.content,
+        engagement: (p.meta as any)?.engagement || 0,
+        publishedAt: p.createdAt,
+      })),
+      recentComments: recentComments.map(c => ({
+        author: c.author,
+        text: c.comment,
+        engagement: 1,
+      })),
+    });
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
     weekStart.setHours(0, 0, 0, 0);
@@ -1028,7 +1092,7 @@ export async function processOcrUpload(formData: FormData) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const { extractTextFromImage, extractTextFromPdfImages } = await import('@tidepilot/ai/ocr');
     const result = type === 'OCR_PDF'
-      ? await extractTextFromPdfImages('stub')
+      ? await extractTextFromPdfImages(buffer)
       : await extractTextFromImage(buffer);
     if (!result.ok) return { ok: false, error: result.error, id: null };
     const { fullText, blocks, confidence_score } = result.data;

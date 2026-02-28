@@ -6,6 +6,7 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:features": "node scripts/test-features.mjs",
     "db:generate": "pnpm --filter @tidepilot/db exec prisma generate",
     "db:push": "pnpm --filter @tidepilot/db exec prisma db push",
     "db:seed": "pnpm --filter @tidepilot/db exec prisma db seed",

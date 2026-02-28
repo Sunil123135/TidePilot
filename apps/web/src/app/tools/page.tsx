@@ -16,11 +16,23 @@ export default function ToolsPage() {
         <p className="mt-2 text-muted-foreground">
           Free tools: hook generator, post formatter, previewer, and more.
         </p>
-        <ul className="mt-8 space-y-2">
-          <li><Link href="/tools/hook-generator" className="text-primary hover:underline">Hook generator</Link></li>
-          <li><Link href="/tools/post-formatter" className="text-primary hover:underline">Post formatter</Link></li>
-          <li><Link href="/tools/previewer" className="text-primary hover:underline">Post previewer</Link></li>
-        </ul>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-border bg-card p-5">
+            <h2 className="font-semibold">Hook Generator</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Generate 5 hook variants from any idea — question, contrarian, data-led, story, framework.</p>
+            <Link href="/app/studio" className="mt-3 inline-block rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90">Open in Studio →</Link>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-5">
+            <h2 className="font-semibold">Voice Rewriter</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Paste any draft. Rewrite it in your captured voice — tone, forbidden phrases, signature moves applied.</p>
+            <Link href="/app/studio" className="mt-3 inline-block rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90">Open in Studio →</Link>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-5">
+            <h2 className="font-semibold">Engagement Replies</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Paste a comment. Get 3 reply suggestions — warm, concise, bold — all matched to your voice.</p>
+            <Link href="/app/engagement" className="mt-3 inline-block rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90">Open Engagement →</Link>
+          </div>
+        </div>
       </main>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   rewriteDraftToVoice,
@@ -15,6 +15,7 @@ import {
   runQualityCheck,
   generateTtsForDraft,
 } from '@/app/actions';
+import { publishToLinkedIn } from '@/app/actions/linkedin';
 import { SegmentResonancePanel } from '../../SegmentResonancePanel';
 import { ReputationRiskPanel } from '../../ReputationRiskPanel';
 import { DraftChannel, DraftStatus } from '@prisma/client';
@@ -61,24 +62,41 @@ function scriptFromMeta(meta: Record<string, unknown> | null): VideoScriptData |
   };
 }
 
+export interface TextSelection {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export function DraftEditor({
   draftId,
   initialContent,
   channel,
   status: initialStatus,
   meta: initialMeta,
+  onTextSelection,
 }: {
   draftId: string;
   initialContent: string;
   channel: DraftChannel;
   status: DraftStatus;
   meta: Record<string, unknown> | null;
+  onTextSelection?: (sel: TextSelection | null) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [content, setContent] = useState(initialContent);
   const [status, setStatus] = useState<DraftStatus>(initialStatus);
   const [meta, setMeta] = useState<Record<string, unknown> | null>(initialMeta ?? null);
   const [rewriteLoading, setRewriteLoading] = useState(false);
+
+  // Auto-trigger rewrite when opened from "Write in my voice"
+  useEffect(() => {
+    if (searchParams.get('autoRewrite') === 'true') {
+      handleRewrite();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [saveLoading, setSaveLoading] = useState(false);
   const [hashtagLoading, setHashtagLoading] = useState(false);
   const [ideaLoading, setIdeaLoading] = useState(false);
@@ -88,6 +106,26 @@ export function DraftEditor({
   const [qualityLoading, setQualityLoading] = useState(false);
   const [showPredictiveScore, setShowPredictiveScore] = useState(true);
   const [listenLoading, setListenLoading] = useState(false);
+  const [publishLoading, setPublishLoading] = useState(false);
+  const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function handleTextareaMouseUp() {
+    const ta = textareaRef.current;
+    if (!ta || !onTextSelection) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    if (start === end) {
+      onTextSelection(null);
+      return;
+    }
+    const text = content.slice(start, end).trim();
+    if (text.length > 0) {
+      onTextSelection({ start, end, text });
+    } else {
+      onTextSelection(null);
+    }
+  }
 
   const suggestedHashtags = (meta?.suggestedHashtags as string[] | undefined) ?? [];
   const pauseMarkers = (meta?.pauseMarkers as string[] | undefined) ?? [];
@@ -184,6 +222,20 @@ export function DraftEditor({
         window.speechSynthesis.speak(u);
       }
       router.refresh();
+    }
+  }
+
+  async function handlePublishToLinkedIn() {
+    setPublishLoading(true);
+    setPublishResult(null);
+    const r = await publishToLinkedIn(draftId);
+    setPublishLoading(false);
+    if (r.ok) {
+      setStatus(DraftStatus.PUBLISHED);
+      setPublishResult({ ok: true, message: 'Published to LinkedIn!' });
+      router.refresh();
+    } else {
+      setPublishResult({ ok: false, message: r.error ?? 'Publish failed' });
     }
   }
 
@@ -522,10 +574,13 @@ export function DraftEditor({
           </label>
           <textarea
             id="draft-editor-content"
+            ref={textareaRef}
             className="min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Enter or edit your draft..."
+            onMouseUp={handleTextareaMouseUp}
+            onKeyUp={handleTextareaMouseUp}
+            placeholder="Enter or edit your draft... (select text to add a comment)"
             title="Draft content"
           />
         </>
@@ -655,7 +710,32 @@ export function DraftEditor({
         <Button size="sm" onClick={saveHandler} disabled={saveLoading}>
           {saveLoading ? 'Saving…' : 'Save'}
         </Button>
+        {isLinkedIn && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePublishToLinkedIn}
+            disabled={publishLoading || !content.trim() || status === DraftStatus.PUBLISHED}
+            className="border-[#0077b5] text-[#0077b5] hover:bg-[#0077b5] hover:text-white"
+          >
+            {publishLoading ? 'Publishing…' : status === DraftStatus.PUBLISHED ? 'Published ✓' : 'Publish to LinkedIn'}
+          </Button>
+        )}
       </div>
+      {publishResult && (
+        <div className={`rounded-md px-3 py-2 text-sm ${
+          publishResult.ok
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {publishResult.message}
+          {!publishResult.ok && (
+            <span className="ml-2 text-xs">
+              <a href="/app/settings" className="underline">Go to Settings</a> to connect LinkedIn.
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

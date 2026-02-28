@@ -43,6 +43,8 @@ import type {
   ReputationRisk,
   GrowthProjection,
 } from './contracts';
+import { getProviderManager } from './providers';
+import type { Message } from './providers';
 
 function simpleHash(s: string): number {
   let h = 0;
@@ -68,7 +70,69 @@ function repairJsonOnce<T>(raw: string, schema: { safeParse: (v: unknown) => { s
   return null;
 }
 
-export function extractVoiceProfile(samples: string[]): VoiceProfile {
+/**
+ * Extract voice profile from writing samples
+ * Uses Claude AI to analyze writing patterns, tone, and style
+ */
+export async function extractVoiceProfile(samples: string[]): Promise<VoiceProfile> {
+  // If no samples provided, return stub
+  if (!samples || samples.length === 0) {
+    return extractVoiceProfileStub(samples);
+  }
+
+  try {
+    const provider = getProviderManager();
+
+    // Create analysis prompt
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are an expert writing analyst specializing in personal brand voice identification.
+
+Analyze writing samples to extract:
+1. Tone characteristics on 0-1 scales:
+   - assertive: How direct vs diplomatic (0=passive, 1=commanding)
+   - concise: Brevity vs elaboration (0=verbose, 1=terse)
+   - empathetic: Warmth vs clinical (0=formal, 1=warm)
+
+2. Forbidden phrases: Words/phrases the author consistently avoids or would never use
+
+3. Signature moves: Recurring patterns like sentence structures, metaphors, frameworks, CTAs
+
+4. Example paragraph: A 2-3 sentence example that captures their essence
+
+Be precise and evidence-based. Quote specific examples from the samples.`,
+      },
+      {
+        role: 'user',
+        content: `Analyze these ${samples.length} writing samples from the same author:
+
+${samples.map((s, i) => `Sample ${i + 1}:\n${s}`).join('\n\n---\n\n')}
+
+Extract their unique voice characteristics and provide a voice profile.`,
+      },
+    ];
+
+    // Call AI provider with structured output
+    const result = await provider.generate({
+      operation: 'extractVoiceProfile',
+      messages,
+      schema: VoiceProfileSchema,
+      temperature: 0.3, // Low temperature for consistency
+      maxTokens: 2000,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[AI] extractVoiceProfile failed, using stub:', error);
+    return extractVoiceProfileStub(samples);
+  }
+}
+
+/**
+ * Stub implementation for fallback/testing
+ */
+function extractVoiceProfileStub(samples: string[]): VoiceProfile {
   const combined = samples.join('\n').slice(0, 500);
   const h = simpleHash(combined);
   const stub: VoiceProfile = {
@@ -110,7 +174,133 @@ export function generateDraft(_params: { idea?: string; voiceProfileId?: string 
   return repaired ?? stub;
 }
 
-export function rewriteToVoice(params: { content: string; _voiceProfileId?: string }): RewriteToVoice {
+/**
+ * Rewrite content to match user's voice profile
+ * Uses Claude AI for nuanced style matching
+ */
+export async function rewriteToVoice(params: {
+  content: string;
+  voiceProfile?: {
+    toneSliders?: Record<string, number>;
+    forbiddenPhrases?: string[];
+    signatureMoves?: string[];
+    exampleParagraph?: string;
+  };
+}): Promise<RewriteToVoice> {
+  const { content, voiceProfile } = params;
+
+  // If no content, return stub
+  if (!content?.trim()) {
+    return rewriteToVoiceStub(params);
+  }
+
+  try {
+    const provider = getProviderManager();
+
+    // Translate tone sliders into actionable writing instructions
+    function toneToInstructions(sliders: Record<string, number> = {}): string {
+      const lines: string[] = [];
+      const assertive = sliders.assertive ?? 0.5;
+      const concise = sliders.concise ?? 0.5;
+      const empathetic = sliders.empathetic ?? 0.5;
+
+      if (assertive > 0.7) lines.push('Use direct, commanding statements. No hedging or "perhaps/maybe/could". State things as facts.');
+      else if (assertive < 0.4) lines.push('Use diplomatic, measured language. Suggest rather than command.');
+      else lines.push('Balance directness with openness.');
+
+      if (concise > 0.7) lines.push('Keep sentences SHORT — 10 words or fewer where possible. Cut every unnecessary word. One idea per sentence.');
+      else if (concise < 0.4) lines.push('Elaborate with context and supporting details. Longer, more explanatory sentences are appropriate.');
+      else lines.push('Moderate sentence length — neither terse nor verbose.');
+
+      if (empathetic > 0.7) lines.push('Warm, human tone. Address the reader directly ("you"). Acknowledge their challenges.');
+      else if (empathetic < 0.4) lines.push('Professional, analytical tone. Minimal emotional language. Focus on data and outcomes.');
+      else lines.push('Neutral professional tone — neither cold nor overly warm.');
+
+      return lines.join('\n');
+    }
+
+    // Build concrete voice profile instructions
+    let voiceContext = '';
+    if (voiceProfile) {
+      const toneInstructions = toneToInstructions(voiceProfile.toneSliders || {});
+      const forbidden = voiceProfile.forbiddenPhrases?.length
+        ? voiceProfile.forbiddenPhrases.join('", "')
+        : null;
+      const moves = voiceProfile.signatureMoves?.length
+        ? voiceProfile.signatureMoves.map((m, i) => `   ${i + 1}. ${m}`).join('\n')
+        : null;
+      const example = voiceProfile.exampleParagraph;
+
+      voiceContext = `
+=== VOICE PROFILE TO MATCH ===
+
+TONE RULES (apply ALL of these):
+${toneInstructions}
+
+${forbidden ? `FORBIDDEN PHRASES (never use any of these — replace with concrete alternatives):
+"${forbidden}"` : ''}
+
+${moves ? `SIGNATURE MOVES (actively apply these patterns in the rewrite):
+${moves}` : ''}
+
+${example ? `TARGET VOICE EXAMPLE (this is what the OUTPUT should sound like):
+---
+${example}
+---
+Study this example carefully. The rewritten content must feel like it was written by the same person.` : ''}
+
+=== REWRITE RULES ===
+1. AGGRESSIVELY apply all tone rules above — make real changes, not cosmetic ones
+2. REMOVE every forbidden phrase and replace with direct, concrete language
+3. APPLY at least 2 signature moves from the list above
+4. The output must feel authentically different from the input — not just slightly polished
+5. Keep the core message and key facts, but transform the voice completely
+`;
+    } else {
+      voiceContext = `No voice profile found. Rewrite to be more direct, concise, and authentic. Remove corporate jargon.`;
+    }
+
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are an expert ghostwriter who rewrites content to precisely match a specific author's voice.
+
+${voiceContext}`,
+      },
+      {
+        role: 'user',
+        content: `Rewrite the following content to match the voice profile above. Make it sound like the same person who wrote the TARGET VOICE EXAMPLE wrote this.
+
+ORIGINAL CONTENT:
+---
+${content}
+---
+
+Return:
+1. The fully rewritten version (field: "rewritten")
+2. A list of specific changes you made (field: "changes") — be specific, e.g. "Removed 'leverage' → replaced with 'use'", "Split long sentence into 3 short ones", "Applied signature move: Short sentences."`,
+      },
+    ];
+
+    const result = await provider.generate({
+      operation: 'rewriteToVoice',
+      messages,
+      schema: RewriteToVoiceSchema,
+      temperature: 0.7,
+      maxTokens: 2000,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[AI] rewriteToVoice failed, using stub:', error);
+    return rewriteToVoiceStub(params);
+  }
+}
+
+/**
+ * Stub implementation for fallback/testing
+ */
+function rewriteToVoiceStub(params: { content: string; voiceProfile?: any }): RewriteToVoice {
   const rewritten =
     params.content.trim() ||
     'Shipping fast means saying no. We focus on one outcome: clarity for the operator.';
@@ -131,7 +321,80 @@ export function rewriteToVoice(params: { content: string; _voiceProfileId?: stri
   return repaired ?? stub;
 }
 
-export function suggestReplies(_params: { comment: string; context?: string }): CommentReply {
+/**
+ * Suggest reply variations for engagement comments
+ * Uses Claude AI to generate voice-matched responses
+ */
+export async function suggestReplies(params: {
+  comment: string;
+  context?: string;
+  voiceProfile?: {
+    toneSliders?: Record<string, number>;
+    forbiddenPhrases?: string[];
+    signatureMoves?: string[];
+  };
+}): Promise<CommentReply> {
+  const { comment, context, voiceProfile } = params;
+
+  if (!comment?.trim()) {
+    return suggestRepliesStub(params);
+  }
+
+  try {
+    const provider = getProviderManager();
+
+    let voiceContext = '';
+    if (voiceProfile) {
+      voiceContext = `
+Voice Profile to match:
+- Tone: ${JSON.stringify(voiceProfile.toneSliders || {})}
+- Avoid: ${voiceProfile.forbiddenPhrases?.join(', ') || 'generic corporate jargon'}
+- Style: ${voiceProfile.signatureMoves?.join('; ') || 'authentic, direct'}
+`;
+    }
+
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are an engagement specialist who helps create authentic, voice-matched replies to comments.
+
+${voiceContext}
+
+Generate 3 reply variations:
+1. "warm" - Friendly and appreciative
+2. "concise" - Brief and to the point
+3. "bold" - Confident and adds value
+
+Each reply should match the voice profile and feel authentic, not generic.
+Rate each reply's voice match score (0-1).`,
+      },
+      {
+        role: 'user',
+        content: `Comment: "${comment}"${context ? `\n\nContext: ${context}` : ''}
+
+Generate 3 reply suggestions that match the voice profile.`,
+      },
+    ];
+
+    const result = await provider.generate({
+      operation: 'suggestReplies',
+      messages,
+      schema: CommentReplySchema,
+      temperature: 0.8,
+      maxTokens: 1000,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[AI] suggestReplies failed, using stub:', error);
+    return suggestRepliesStub(params);
+  }
+}
+
+/**
+ * Stub implementation for fallback/testing
+ */
+function suggestRepliesStub(_params: { comment: string; context?: string }): CommentReply {
   const stub: CommentReply = {
     id: stubId('reply'),
     type: 'comment_reply',
@@ -227,7 +490,82 @@ export function optimizeForReadingAloud(params: { content: string }): OptimizeFo
   return repaired ?? stub;
 }
 
-export function generateWeeklyBrief(_params: { workspaceId?: string }): WeeklyBrief {
+/**
+ * Generate weekly operator brief with insights and action items
+ * Uses Claude AI to analyze performance data and suggest next steps
+ */
+export async function generateWeeklyBrief(params: {
+  workspaceId?: string;
+  recentPosts?: Array<{ title: string; content: string; engagement: number; publishedAt: Date }>;
+  recentComments?: Array<{ author: string; text: string; engagement: number }>;
+  goals?: { postsPerWeek?: number; engagementTarget?: number };
+}): Promise<WeeklyBrief> {
+  try {
+    const provider = getProviderManager();
+
+    // Build context from recent activity
+    const { recentPosts = [], recentComments = [], goals = {} } = params;
+
+    let activityContext = '';
+    if (recentPosts.length > 0) {
+      activityContext += `\nRecent Posts (last 7 days):\n`;
+      recentPosts.forEach((p) => {
+        activityContext += `- "${p.title}" (${p.engagement} engagement)\n`;
+      });
+    }
+
+    if (recentComments.length > 0) {
+      activityContext += `\nTop Commenters:\n`;
+      recentComments.forEach((c) => {
+        activityContext += `- ${c.author}: "${c.text.slice(0, 100)}..."\n`;
+      });
+    }
+
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are a strategic brand advisor who creates weekly operator briefs.
+
+Analyze performance data and provide:
+1. A clear objective for the week (one sentence, actionable)
+2. 2-3 key insights (what's working, what's not, patterns to leverage)
+3. Action items (prioritized by impact, with time estimates)
+4. Post suggestions (2-3 specific content ideas)
+5. People to engage with (who's actively engaging)
+
+Be specific, data-driven, and actionable. No generic advice.`,
+      },
+      {
+        role: 'user',
+        content: `Generate this week's operator brief.
+
+${activityContext}
+
+Goals: ${goals.postsPerWeek || 2} posts/week, ${goals.engagementTarget || 100} total engagement
+
+What should the user focus on this week?`,
+      },
+    ];
+
+    const result = await provider.generate({
+      operation: 'generateWeeklyBrief',
+      messages,
+      schema: WeeklyBriefSchema,
+      temperature: 0.6,
+      maxTokens: 3000,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[AI] generateWeeklyBrief failed, using stub:', error);
+    return generateWeeklyBriefStub(params);
+  }
+}
+
+/**
+ * Stub implementation for fallback/testing
+ */
+function generateWeeklyBriefStub(_params: any): WeeklyBrief {
   const stub: WeeklyBrief = {
     id: stubId('brief'),
     type: 'weekly_brief',

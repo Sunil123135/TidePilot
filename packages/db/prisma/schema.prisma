@@ -109,6 +109,8 @@ model Workspace {
   voicePersonas VoicePersona[]
   audioAssets   AudioAsset[]
   consentLogs   ConsentLog[]
+  linkedInConnection LinkedInConnection?
+  linkedInPosts      LinkedInPost[]
 }
 
 model Membership {
@@ -305,4 +307,52 @@ model ConsentLog {
   consentType  ConsentType
   statementText String     @db.Text
   createdAt    DateTime    @default(now())
+}
+
+model LinkedInConnection {
+  id           String    @id @default(cuid())
+  workspaceId  String    @unique
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime
+  linkedInId   String?
+  name         String?
+  profileUrl   String?
+  lastSync     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  posts        LinkedInPost[]
+}
+
+model LinkedInPost {
+  id           String             @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connectionId String
+  connection   LinkedInConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  linkedInId   String             @unique
+  content      String             @db.Text
+  publishedAt  DateTime
+  likes        Int                @default(0)
+  comments     Int                @default(0)
+  shares       Int                @default(0)
+  draftId      String?
+  createdAt    DateTime           @default(now())
+}
+
+model DraftComment {
+  id             String         @id @default(cuid())
+  draftId        String
+  authorName     String         @default("Anonymous")
+  content        String         @db.Text
+  selectionStart Int?
+  selectionEnd   Int?
+  selectedText   String?        @db.Text
+  parentId       String?
+  resolved       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  replies        DraftComment[] @relation("CommentReplies")
+  parent         DraftComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
 }
