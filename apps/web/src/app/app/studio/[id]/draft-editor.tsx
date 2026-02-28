@@ -95,7 +95,6 @@ export function DraftEditor({
     if (searchParams.get('autoRewrite') === 'true') {
       handleRewrite();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [saveLoading, setSaveLoading] = useState(false);
   const [hashtagLoading, setHashtagLoading] = useState(false);
