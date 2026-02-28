@@ -51,7 +51,7 @@ export default async function SettingsPage() {
             <span className="text-muted-foreground">Clerk Auth</span>
             {(() => {
               const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-              const valid = /^pk_(test|live)_.{20,}\$$/.test(key);
+              const valid = /^pk_(test|live)_.{10,}/.test(key.trim());
               return (
                 <span className={valid ? 'text-green-600' : 'text-amber-600'}>
                   {valid ? 'Configured' : 'Not configured (placeholder)'}

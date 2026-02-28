@@ -22,8 +22,8 @@ const NAV_ITEMS = [
 
 function isValidClerkKey(key: string | undefined) {
   if (!key) return false;
-  const match = key.match(/^pk_(test|live)_(.+)$/);
-  return !!match && match[2].length > 20 && match[2].endsWith('$');
+  const match = key.trim().match(/^pk_(test|live)_(.+)$/);
+  return !!match && match[2].length > 10;
 }
 
 export default async function AppLayout({

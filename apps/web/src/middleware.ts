@@ -18,8 +18,8 @@ function isValidClerkKey(key: string | undefined): boolean {
   if (!key) return false;
   const match = key.match(/^pk_(test|live)_(.+)$/);
   if (!match) return false;
-  // Valid Clerk keys have a long encoded section (>20 chars) ending in $
-  return match[2].length > 20 && match[2].endsWith('$');
+  // Valid Clerk keys have a long encoded section (>10 chars)
+  return match[2].trim().length > 10;
 }
 
 const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
