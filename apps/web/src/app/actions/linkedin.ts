@@ -52,8 +52,9 @@ export async function syncLinkedInPosts() {
     if (!linkedInId) return { ok: false, error: 'LinkedIn profile ID missing', count: 0 };
 
     // Fetch recent posts from LinkedIn UGC API
+    const authorsParam = encodeURIComponent(`List(urn:li:person:${linkedInId})`);
     const postsRes = await fetch(
-      `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=List(urn:li:person:${linkedInId})&count=20&sortBy=LAST_MODIFIED`,
+      `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=${authorsParam}&count=20`,
       {
         headers: {
           Authorization: `Bearer ${conn.accessToken}`,
