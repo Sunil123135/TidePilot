@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { PenLine, Upload, Search, Mic, LayoutDashboard, FileText, CalendarDays, Target, Lightbulb, MessageSquare, BarChart2, Inbox, TrendingUp, Brain, Flag, GraduationCap, Settings } from 'lucide-react';
 
