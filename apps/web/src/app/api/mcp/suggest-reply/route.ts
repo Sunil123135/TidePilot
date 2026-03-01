@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
 
     const result = await suggestReplies({
       comment: item.comment,
-      author: item.author ?? undefined,
       voiceProfile: voiceProfile
         ? {
             toneSliders: voiceProfile.toneSliders as Record<string, number>,
