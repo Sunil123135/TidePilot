@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import { UserButton } from '@clerk/nextjs';
 import { PenLine, Upload, Search, Mic, LayoutDashboard, FileText, CalendarDays, Target, Lightbulb, MessageSquare, BarChart2, Inbox, TrendingUp, Brain, Flag, GraduationCap, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -20,24 +21,11 @@ const NAV_ITEMS = [
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
 
-function isValidClerkKey(key: string | undefined) {
-  if (!key) return false;
-  const match = key.trim().match(/^pk_(test|live)_(.+)$/);
-  return !!match && match[2].length > 10;
-}
-
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const useClerk = isValidClerkKey(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-  let UserButtonEl: React.ReactNode = null;
-  if (useClerk) {
-    const { UserButton } = await import('@clerk/nextjs');
-    UserButtonEl = <UserButton />;
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside className="fixed left-0 top-0 z-40 h-screen w-56 border-r border-border bg-card flex flex-col">
@@ -84,7 +72,7 @@ export default async function AppLayout({
               <PenLine className="h-3.5 w-3.5" />
               Create Draft
             </Link>
-            {UserButtonEl}
+            <UserButton />
           </div>
         </header>
         <main className="p-6">{children}</main>
