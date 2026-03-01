@@ -12,7 +12,7 @@ import {
 } from '@tidepilot/ai';
 import { revalidatePath } from 'next/cache';
 import { DraftStatus, DraftChannel, EngagementStatus, PublishPlatform, InboxItemType, InboxItemStatus, FileAssetKind, VoicePersonaStatus, VoicePersonaProvider, AudioAssetKind, ConsentType } from '@prisma/client';
-import { suggestLinkedInPost, predictSegmentResonance, analyzeReputationRisk } from '@tidepilot/ai';
+import { suggestLinkedInPost, predictSegmentResonance, analyzeReputationRisk, analyzeCompetitorPatterns } from '@tidepilot/ai';
 import { orchestrate } from '@tidepilot/ai/orchestrator';
 
 const MOCK_WORKSPACE_ID = 'demo-workspace-id';
@@ -1232,5 +1232,16 @@ export async function reorderScheduledPost(draftId: string, newDate: Date, slotO
   } catch (e) {
     console.error(e);
     return { ok: false, error: String(e) };
+  }
+}
+
+// Competitive Benchmark
+export async function analyzeCompetitorPatternsAction(competitorPosts: string[]) {
+  try {
+    const result = await analyzeCompetitorPatterns({ competitorPosts });
+    return { ok: true, data: result };
+  } catch (e) {
+    console.error('[analyzeCompetitorPatternsAction]', e);
+    return { ok: false, error: String(e), data: null };
   }
 }

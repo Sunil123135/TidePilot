@@ -2,7 +2,16 @@ import Link from 'next/link';
 import { getDrafts } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { FeatureGuide } from '@/components/feature-guide';
 import { StudioClient } from './studio-client';
+
+const STUDIO_STEPS = [
+  { title: 'Create a new draft', description: 'Click "New Draft" to open the editor. Write your idea, paste content, or start from a brief suggestion.' },
+  { title: 'Write or edit your content', description: 'Use the draft editor to craft your post. Aim for a strong hook in the first line.' },
+  { title: 'Rewrite to Voice', description: 'Click "Rewrite to Voice" to have AI rewrite your draft in your exact style using your Voice Lab profile.' },
+  { title: 'Check voice score', description: 'See how closely the draft matches your voice profile. Scores above 0.8 are publication-ready.' },
+  { title: 'Schedule or publish', description: 'Send to your publishing calendar or post directly to LinkedIn via the Settings connection.' },
+];
 
 export default async function StudioPage() {
   const drafts = await getDrafts();
@@ -26,6 +35,12 @@ export default async function StudioPage() {
           <StudioClient />
         </div>
       </div>
+
+      <FeatureGuide
+        feature="Studio"
+        steps={STUDIO_STEPS}
+        agentNote="GPT-4 Turbo rewrites your content to match your voice profile — preserving your ideas while applying your exact tone, structure, and style."
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">

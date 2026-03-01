@@ -1,22 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { analyzeCompetitorPatterns } from '@tidepilot/ai';
+import { useState, useTransition } from 'react';
+import { analyzeCompetitorPatternsAction } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, Target } from 'lucide-react';
+import type { CompetitorPattern } from '@tidepilot/ai/contracts';
 
 export function BenchmarkClient() {
   const [posts, setPosts] = useState('');
-  const [analysis, setAnalysis] = useState<ReturnType<typeof analyzeCompetitorPatterns> | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<CompetitorPattern | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function handleAnalyze() {
-    setLoading(true);
-    const lines = posts.trim().split('\n').filter(Boolean);
-    const result = analyzeCompetitorPatterns({ competitorPosts: lines });
-    setAnalysis(result);
-    setLoading(false);
+    const lines = posts.trim().split(/\n{2,}|\n(?=Post \d)/).map(s => s.trim()).filter(Boolean);
+    const postList = lines.length > 1 ? lines : posts.trim().split('\n').filter(Boolean);
+
+    startTransition(async () => {
+      const result = await analyzeCompetitorPatternsAction(postList);
+      if (result.ok && result.data) {
+        setAnalysis(result.data);
+      }
+    });
   }
 
   return (
@@ -25,22 +30,22 @@ export function BenchmarkClient() {
         <CardHeader>
           <CardTitle className="text-base">Import competitor posts</CardTitle>
           <CardDescription>
-            Paste competitor posts (one per line) to analyze hook patterns and topic coverage.
+            Paste competitor posts (separated by blank lines) to analyze hook patterns and topic coverage.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <textarea
-            className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Paste competitor posts here, one per line..."
+            className="min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            placeholder="Paste competitor posts here, separated by a blank line between each post..."
             value={posts}
             onChange={(e) => setPosts(e.target.value)}
           />
           <Button
             className="mt-2"
             onClick={handleAnalyze}
-            disabled={loading}
+            disabled={isPending || !posts.trim()}
           >
-            {loading ? 'Analyzing…' : 'Analyze'}
+            {isPending ? 'Analyzing…' : 'Analyze'}
           </Button>
         </CardContent>
       </Card>

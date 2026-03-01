@@ -1,36 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { analyzeNarrativePosition } from '@tidepilot/ai';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react';
+import type { NarrativePosition } from '@tidepilot/ai/contracts';
 
 interface NarrativeMapProps {
-  writingSamples: string[];
-  draftContents: string[];
+  analysis: NarrativePosition;
 }
 
-export function NarrativeMap({ writingSamples, draftContents }: NarrativeMapProps) {
-  const [analysis, setAnalysis] = useState<ReturnType<typeof analyzeNarrativePosition> | null>(null);
-
-  useEffect(() => {
-    const result = analyzeNarrativePosition({
-      writingSamples,
-      drafts: draftContents,
-    });
-    setAnalysis(result);
-  }, [writingSamples, draftContents]);
-
-  if (!analysis) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          Loading narrative analysis…
-        </CardContent>
-      </Card>
-    );
-  }
-
+export function NarrativeMap({ analysis }: NarrativeMapProps) {
   const { data } = analysis;
 
   return (

@@ -778,7 +778,59 @@ export function predictOptimalPublishWindow(_params: { scheduledPosts?: Array<{ 
   return stub;
 }
 
-export function analyzeNarrativePosition(_params: { writingSamples?: string[]; drafts?: string[] }): NarrativePosition {
+export async function analyzeNarrativePosition(params: { writingSamples?: string[]; drafts?: string[] }): Promise<NarrativePosition> {
+  const { writingSamples = [], drafts = [] } = params;
+
+  if (writingSamples.length === 0 && drafts.length === 0) {
+    return analyzeNarrativePositionStub();
+  }
+
+  try {
+    const provider = getProviderManager();
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are an expert personal brand strategist. Analyze writing samples and draft content to identify the author's narrative positioning.
+
+Identify:
+1. Top 5 narrative signals: recurring themes with strength (0-1) and brief evidence
+2. Emerging authority zones: 3-5 niche topics gaining traction
+3. Overused themes: 2-4 topics showing saturation
+4. Underrepresented angles: 3-5 opportunities not yet covered
+5. A one-sentence positioning summary
+6. Confidence score (0-1)
+
+Return valid JSON matching the NarrativePosition schema with all required fields.`,
+      },
+      {
+        role: 'user',
+        content: `Analyze this author's content:
+
+Writing Samples (${writingSamples.length}):
+${writingSamples.map((s, i) => `Sample ${i + 1}: ${s}`).join('\n\n')}
+
+Recent Drafts (${drafts.length}):
+${drafts.slice(0, 8).map((d, i) => `Draft ${i + 1}: ${d.slice(0, 400)}`).join('\n\n')}
+
+Identify their narrative positioning patterns based on the actual content above.`,
+      },
+    ];
+
+    const result = await provider.generate({
+      operation: 'analyzeNarrativePosition',
+      messages,
+      schema: NarrativePositionSchema,
+      temperature: 0.3,
+      maxTokens: 1500,
+    });
+    return result;
+  } catch (error) {
+    console.error('[AI] analyzeNarrativePosition failed, using stub:', error);
+    return analyzeNarrativePositionStub();
+  }
+}
+
+function analyzeNarrativePositionStub(): NarrativePosition {
   const stub: NarrativePosition = {
     id: stubId('narr'),
     type: 'narrative_position_analysis',
@@ -828,7 +880,52 @@ export function predictSegmentResonance(params: { content: string }): SegmentRes
   return stub;
 }
 
-export function analyzeCompetitorPatterns(_params: { competitorPosts: string[] }): CompetitorPattern {
+export async function analyzeCompetitorPatterns(params: { competitorPosts: string[] }): Promise<CompetitorPattern> {
+  const { competitorPosts } = params;
+
+  if (!competitorPosts || competitorPosts.length === 0) {
+    return analyzeCompetitorPatternsStub();
+  }
+
+  try {
+    const provider = getProviderManager();
+    const messages: Message[] = [
+      {
+        role: 'system',
+        content: `You are an expert competitive intelligence analyst for personal brand content on LinkedIn.
+
+Analyze competitor posts and identify:
+1. Hook patterns: up to 5 types (question, data_led, contrarian, story, bold_claim) with frequency (0-1) and one real example from the posts
+2. Topic coverage: up to 8 topics with post count
+3. Differentiation gaps: 3-5 opportunities the competitor misses or underserves
+
+Return valid JSON matching the CompetitorPattern schema with all required fields.`,
+      },
+      {
+        role: 'user',
+        content: `Analyze these ${competitorPosts.length} competitor posts:
+
+${competitorPosts.map((p, i) => `Post ${i + 1}:\n${p}`).join('\n\n---\n\n')}
+
+Identify patterns across these posts and surface differentiation opportunities.`,
+      },
+    ];
+
+    const result = await provider.generate({
+      operation: 'analyzeCompetitorPatterns',
+      messages,
+      schema: CompetitorPatternSchema,
+      temperature: 0.3,
+      maxTokens: 1500,
+    });
+    return result;
+  } catch (error) {
+    console.error('[AI] analyzeCompetitorPatterns failed, using stub:', error);
+    return analyzeCompetitorPatternsStub();
+  }
+}
+
+function analyzeCompetitorPatternsStub(): CompetitorPattern {
   const stub: CompetitorPattern = {
     id: stubId('comp'),
     type: 'competitor_pattern_analysis',

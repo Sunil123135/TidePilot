@@ -2,7 +2,15 @@ import Link from 'next/link';
 import { getWritingSamples, getVoiceProfile, createWritingSample, generateVoiceProfileAction } from '@/app/actions';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FeatureGuide } from '@/components/feature-guide';
 import { VoiceLabForm } from './voice-lab-form';
+
+const VOICE_LAB_STEPS = [
+  { title: 'Paste your writing samples', description: 'Add 3 or more examples of your real writing — LinkedIn posts, emails, articles, or any text that sounds like you.' },
+  { title: 'Click "Analyze Voice"', description: 'The AI reads all your samples and extracts your unique tone, style patterns, and preferred phrases.' },
+  { title: 'Review your voice profile', description: 'See your tone sliders (assertive, concise, empathetic), forbidden phrases, and signature moves.' },
+  { title: 'Use it across the app', description: 'Your voice profile drives rewrites in Studio, reply suggestions in Engagement, and narrative analysis.' },
+];
 
 export default async function VoiceLabPage() {
   const [samples, profile] = await Promise.all([getWritingSamples(), getVoiceProfile()]);
@@ -20,6 +28,12 @@ export default async function VoiceLabPage() {
           Create voice persona
         </Link>
       </div>
+
+      <FeatureGuide
+        feature="Voice Lab"
+        steps={VOICE_LAB_STEPS}
+        agentNote="GPT-4 Turbo analyzes your writing samples to extract tone sliders, forbidden phrases, and signature moves that define your unique voice."
+      />
 
       <VoiceLabForm generateAction={generateVoiceProfileAction} createSample={createWritingSample} />
 

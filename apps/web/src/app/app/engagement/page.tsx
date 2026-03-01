@@ -1,7 +1,16 @@
 import { getEngagementItems } from '@/app/actions';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { FeatureGuide } from '@/components/feature-guide';
 import { EngagementClient } from './engagement-client';
 import { RelationshipIntelligence } from './RelationshipIntelligence';
+
+const ENGAGEMENT_STEPS = [
+  { title: 'Connect LinkedIn in Settings', description: 'Go to Settings → LinkedIn and click "Connect LinkedIn" to authorize TidePilot to read your posts and comments.' },
+  { title: 'Sync your posts', description: 'Click "Sync Posts" to import your recent LinkedIn comments and mentions into the engagement queue.' },
+  { title: 'Review the priority queue', description: 'Comments are sorted by relationship score. High-value connections and frequent engagers appear at the top.' },
+  { title: 'Generate a reply suggestion', description: 'Click "Suggest Reply" on any pending comment. The AI writes a response in your voice.' },
+  { title: 'Edit and post', description: 'Review the suggestion, make any edits, then copy it to LinkedIn or use the direct posting integration.' },
+];
 
 export default async function EngagementPage() {
   const items = await getEngagementItems();
@@ -16,6 +25,12 @@ export default async function EngagementPage() {
           Inbound comments, high-value people, suggested replies.
         </p>
       </div>
+
+      <FeatureGuide
+        feature="Engagement Cockpit"
+        steps={ENGAGEMENT_STEPS}
+        agentNote="GPT-4 Turbo reads the comment context and your voice profile to generate reply suggestions that sound exactly like you."
+      />
 
       <RelationshipIntelligence />
 
