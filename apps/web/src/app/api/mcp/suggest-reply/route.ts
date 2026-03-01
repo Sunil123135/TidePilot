@@ -29,12 +29,11 @@ export async function POST(req: NextRequest) {
             toneSliders: voiceProfile.toneSliders as Record<string, number>,
             forbiddenPhrases: voiceProfile.forbiddenPhrases,
             signatureMoves: voiceProfile.signatureMoves,
-            exampleParagraph: voiceProfile.exampleParagraph ?? undefined,
           }
         : undefined,
     });
 
-    return NextResponse.json({ ok: true, replies: result.data.replies });
+    return NextResponse.json({ ok: true, replies: result.data.suggestions });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
