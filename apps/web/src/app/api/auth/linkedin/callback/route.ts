@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@tidepilot/db';
+import { auth } from '@clerk/nextjs/server';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -64,13 +65,23 @@ export async function GET(req: NextRequest) {
       name = profile.name ?? `${profile.given_name ?? ''} ${profile.family_name ?? ''}`.trim();
     }
 
-    // Get the workspace (use first available)
-    const workspace = await db.workspace.findFirst();
-    if (!workspace) {
+    // Get the workspace for the current Clerk user
+    const { userId: clerkId } = await auth();
+    if (!clerkId) {
+      return NextResponse.redirect(
+        new URL('/app/settings?linkedin=error&reason=not_authenticated', req.url)
+      );
+    }
+    const membership = await db.membership.findFirst({
+      where: { user: { clerkId } },
+      select: { workspaceId: true },
+    });
+    if (!membership) {
       return NextResponse.redirect(
         new URL('/app/settings?linkedin=error&reason=no_workspace', req.url)
       );
     }
+    const workspace = { id: membership.workspaceId };
 
     // Upsert LinkedIn connection
     await db.linkedInConnection.upsert({
