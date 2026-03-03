@@ -3,9 +3,11 @@ import Stripe from 'stripe';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@tidepilot/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-02-25.clover' });
-
 export async function POST() {
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
+  const stripe = new Stripe(stripeKey, { apiVersion: '2026-02-25.clover' });
+
   const { userId: clerkId } = await auth();
   if (!clerkId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
