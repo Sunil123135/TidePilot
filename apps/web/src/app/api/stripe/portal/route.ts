@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@tidepilot/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2026-02-25.clover' });
 
 export async function POST() {
   const { userId: clerkId } = await auth();
