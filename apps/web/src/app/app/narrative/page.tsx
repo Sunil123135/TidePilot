@@ -2,6 +2,8 @@ import { getDrafts, getWritingSamples } from '@/app/actions';
 import { FeatureGuide } from '@/components/feature-guide';
 import { analyzeNarrativePosition } from '@tidepilot/ai';
 import { NarrativeMap } from './NarrativeMap';
+import { getWorkspacePlan } from '@/app/actions/plan';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
 const NARRATIVE_STEPS = [
   { title: 'Add writing samples in Voice Lab first', description: 'The Narrative Engine needs your writing samples to identify patterns. Go to Voice Lab and paste at least 3 samples.' },
@@ -12,6 +14,16 @@ const NARRATIVE_STEPS = [
 ];
 
 export default async function NarrativePage() {
+  const plan = await getWorkspacePlan();
+  if (plan === 'FREE') {
+    return (
+      <UpgradePrompt
+        feature="Narrative Engine"
+        description="Unlock long-term positioning intelligence — core themes, emerging authority zones, and saturation signals. Available on Pro and Teams."
+      />
+    );
+  }
+
   const [drafts, samples] = await Promise.all([
     getDrafts(),
     getWritingSamples(),

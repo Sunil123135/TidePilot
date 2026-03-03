@@ -1,7 +1,19 @@
 import { getDrafts, getWritingSamples, getStrategicPositioning } from '@/app/actions';
 import { StrategyClient } from './StrategyClient';
+import { getWorkspacePlan } from '@/app/actions/plan';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
 export default async function StrategyPage() {
+  const plan = await getWorkspacePlan();
+  if (plan === 'FREE') {
+    return (
+      <UpgradePrompt
+        feature="Strategy Agent"
+        description="Get your authority roadmap, detect narrative drift, and identify content gaps with AI-powered strategic intelligence. Available on Pro and Teams."
+      />
+    );
+  }
+
   const [drafts, samples, positioning] = await Promise.all([
     getDrafts(),
     getWritingSamples(),

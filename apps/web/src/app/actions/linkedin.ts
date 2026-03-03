@@ -3,15 +3,7 @@
 import { db } from '@tidepilot/db';
 import { revalidatePath } from 'next/cache';
 import { DraftStatus } from '@prisma/client';
-
-async function getWorkspaceId(): Promise<string | null> {
-  try {
-    const w = await db.workspace.findFirst();
-    return w?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+import { getWorkspaceId } from './workspace';
 
 export async function getLinkedInConnection() {
   try {

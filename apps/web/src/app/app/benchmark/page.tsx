@@ -1,6 +1,7 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FeatureGuide } from '@/components/feature-guide';
 import { BenchmarkClient } from './BenchmarkClient';
+import { getWorkspacePlan } from '@/app/actions/plan';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
 const BENCHMARK_STEPS = [
   { title: 'Find competitor posts', description: 'Browse LinkedIn and copy the text of 3-10 posts from creators in your niche or industry.' },
@@ -10,7 +11,17 @@ const BENCHMARK_STEPS = [
   { title: 'Find differentiation gaps', description: 'Topics and angles competitors ignore are your opportunity. Use these gaps to plan content that stands out.' },
 ];
 
-export default function BenchmarkPage() {
+export default async function BenchmarkPage() {
+  const plan = await getWorkspacePlan();
+  if (plan === 'FREE') {
+    return (
+      <UpgradePrompt
+        feature="Competitive Benchmark"
+        description="Analyze competitor posts to find hook patterns, topic gaps, and differentiation opportunities. Available on Pro and Teams."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>

@@ -1,11 +1,15 @@
 import { Suspense } from 'react';
 import { LinkedInSettingsPanel } from './linkedin-settings';
 import { getLinkedInConnection, getLinkedInPosts } from '@/app/actions/linkedin';
+import { getWorkspacePlan, getWorkspaceBillingInfo } from '@/app/actions/plan';
+import { BillingSection } from './billing-section';
 
 export default async function SettingsPage() {
-  const [connection, posts] = await Promise.all([
+  const [connection, posts, plan, billing] = await Promise.all([
     getLinkedInConnection(),
     getLinkedInPosts(),
+    getWorkspacePlan(),
+    getWorkspaceBillingInfo(),
   ]);
 
   const isLinkedInConfigured = !!(
@@ -18,8 +22,13 @@ export default async function SettingsPage() {
     <div className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-1 text-muted-foreground">Manage integrations and workspace settings.</p>
+        <p className="mt-1 text-muted-foreground">Manage integrations, billing, and workspace settings.</p>
       </div>
+
+      <section>
+        <h2 className="text-base font-semibold mb-4">Billing &amp; Plan</h2>
+        <BillingSection plan={plan} billing={billing} />
+      </section>
 
       <section>
         <h2 className="text-base font-semibold mb-4">Integrations</h2>
@@ -58,6 +67,12 @@ export default async function SettingsPage() {
                 </span>
               );
             })()}
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Stripe</span>
+            <span className={process.env.STRIPE_SECRET_KEY ? 'text-green-600' : 'text-amber-600'}>
+              {process.env.STRIPE_SECRET_KEY ? 'Configured' : 'Not configured'}
+            </span>
           </div>
         </div>
       </section>

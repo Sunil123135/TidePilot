@@ -14,45 +14,7 @@ import { revalidatePath } from 'next/cache';
 import { DraftStatus, DraftChannel, EngagementStatus, PublishPlatform, InboxItemType, InboxItemStatus, FileAssetKind, VoicePersonaStatus, VoicePersonaProvider, AudioAssetKind, ConsentType } from '@prisma/client';
 import { suggestLinkedInPost, predictSegmentResonance, analyzeReputationRisk, analyzeCompetitorPatterns } from '@tidepilot/ai';
 import { orchestrate } from '@tidepilot/ai/orchestrator';
-import { auth, currentUser } from '@clerk/nextjs/server';
-
-async function getWorkspaceId(): Promise<string | null> {
-  try {
-    const { userId: clerkId } = await auth();
-    if (!clerkId) return null;
-
-    // Try to find existing user → workspace
-    const membership = await db.membership.findFirst({
-      where: { user: { clerkId } },
-      select: { workspaceId: true },
-    });
-    if (membership) return membership.workspaceId;
-
-    // First visit: auto-provision user + workspace
-    const clerkUser = await currentUser();
-    const email = clerkUser?.emailAddresses[0]?.emailAddress ?? `${clerkId}@tidepilot.app`;
-    const name = clerkUser?.firstName
-      ? `${clerkUser.firstName} ${clerkUser.lastName ?? ''}`.trim()
-      : 'My';
-
-    const user = await db.user.upsert({
-      where: { clerkId },
-      create: { clerkId, email, name },
-      update: {},
-    });
-
-    const workspace = await db.workspace.create({
-      data: {
-        name: `${name}'s Workspace`,
-        memberships: { create: { userId: user.id, role: 'owner' } },
-      },
-    });
-
-    return workspace.id;
-  } catch {
-    return null;
-  }
-}
+import { getWorkspaceId } from './workspace';
 
 export async function createWritingSample(formData: FormData) {
   const text = formData.get('text') as string;

@@ -1,20 +1,10 @@
-import { getWorkspacePlan } from '@/app/actions/plan';
-import { UpgradePrompt } from '@/components/upgrade-prompt';
-import { GrowthClient } from './GrowthClient';
+'use client';
 
-export default async function GrowthPage() {
-  const plan = await getWorkspacePlan();
-  if (plan === 'FREE') {
-    return (
-      <UpgradePrompt
-        feature="Growth Simulator"
-        description="Model your long-term trajectory — authority projection, engagement compounding, and fatigue detection. Available on Pro and Teams."
-      />
-    );
-  }
-  return <GrowthClient />;
-}
-
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { runGrowthSimulation } from '@/app/actions';
+import { TrendingUp, AlertTriangle } from 'lucide-react';
 
 type Projection = {
   month: number;
@@ -29,7 +19,7 @@ type GrowthData = {
   confidence_score: number;
 };
 
-export default function GrowthPage() {
+export function GrowthClient() {
   const [postsPerWeek, setPostsPerWeek] = useState(4);
   const [months, setMonths] = useState(6);
   const [data, setData] = useState<GrowthData | null>(null);
